@@ -81,7 +81,7 @@ void RetriveSensorData()
   Console.println(value);
   
   //Read Light level
-  value = String(AnalogReadFromMultiplexer(A0,1));
+  value = String(CalculateLux(AnalogReadFromMultiplexer(A0,1)));
   Bridge.put("LightValue",value);
   Console.print("Light level: ");
   Console.println(value);
@@ -164,4 +164,11 @@ int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
       analogRead(ReadFromPin);
       break;
   }
+}
+
+int CalculateLux(int AnalogRead)
+{
+	float Res0=10.0;	// Resistance in the circuit of sensor 0 (KOhms)
+	float Vout0=photocellReading0*0.0048828125;
+	return 500/(Res0*((5-Vout0)/Vout0));
 }
