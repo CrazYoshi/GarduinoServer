@@ -2,6 +2,7 @@
 //    # 0  ~300     dry soil
 //    # 300~700     humid soil
 //    # 700~950     in water
+//    http://arduinoaddress/arduino/data/get
 
 #include <Bridge.h>
 #include <YunServer.h>
@@ -169,6 +170,6 @@ int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
 int CalculateLux(int AnalogRead)
 {
 	float Res0=10.0;	// Resistance in the circuit of sensor 0 (KOhms)
-	float Vout0=photocellReading0*0.0048828125;
+	float Vout0=AnalogRead*0.0048828125;
 	return 500/(Res0*((5-Vout0)/Vout0));
 }
