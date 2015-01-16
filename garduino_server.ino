@@ -2,7 +2,7 @@
 //    # 0  ~300     dry soil
 //    # 300~700     humid soil
 //    # 700~950     in water
-//    http://arduinoaddress/arduino/data/get
+//    #http://192.168.1.9/arduino/data/get
 
 #include <Bridge.h>
 #include <YunServer.h>
@@ -33,7 +33,6 @@ void setup() {
   digitalWrite(13, LOW);
   Bridge.begin();
   Console.begin();
-  while (!Console);
   digitalWrite(13, HIGH);
 
   // Listen for incoming connection
@@ -64,7 +63,7 @@ void loop() {
   if (client) {
     Console.println("Client connected");
     // Process request
-    RetriveSensorData();
+    RetriveSensorData(client);
     // Close connection and free resources.
     client.stop();
   }
@@ -72,43 +71,49 @@ void loop() {
   delay(50); // Poll every 50ms
 }
 
-void RetriveSensorData()
+void RetriveSensorData(YunClient client)
 {
   String value;
+  client.println("Status: 200");
+  client.println("Content-type: application/json; charset=utf-8");
+  client.println(); //mandatory blank line
+  client.print("{\"values\":[");
+  
   //Read Humidity
   value = String(dht.readHumidity());
-  Bridge.put("HumidityValue",value);
   Console.print("Humidity: ");
   Console.println(value);
+  client.print("{\"HumidityValue\": " + value + "}");
   
   //Read Light level
   value = String(CalculateLux(AnalogReadFromMultiplexer(A0,1)));
-  Bridge.put("LightValue",value);
   Console.print("Light level: ");
   Console.println(value);
+  client.print(",{\"LightValue\": " + value + "}");
   
   //Read Moisture level (0)
   value = String(AnalogReadFromMultiplexer(A0,0));
-  Bridge.put("Moisture1Value",value);
   Console.print("Moisture: ");
   Console.println(value);
+  client.print(",{\"Moisture1Value\": " + value + "}");
   
   //Read pressure from BMP sensor
   sensors_event_t event;
   bmp.getEvent(&event);
   value = String(event.pressure);
-  Bridge.put("PressureValue",value);
   Console.print("Barometric pressure: ");
   Console.println(value);
+  client.print(",{\"PressureValue\": " + value + "}");
 
   //Read temperature from BMP sensor
   float temperature;
   bmp.getTemperature(&temperature);
   value = String(temperature);
-  Bridge.put("TemperatureValue",value);
   Console.print("Temperature: ");
   Console.println(value);
+  client.print(",{\"TemperatureValue\": " + value + "}");
   
+  client.print("]}");
   Console.println("");
 }
 
