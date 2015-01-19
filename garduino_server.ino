@@ -2,8 +2,7 @@
 //    # 0  ~300     dry soil
 //    # 300~700     humid soil
 //    # 700~950     in water
-//    #http://192.168.1.9/arduino/data/get
-
+//    #http://ArduinoAddress/arduino/command
 #include <Bridge.h>
 #include <YunServer.h>
 #include <YunClient.h>
@@ -11,6 +10,7 @@
 #include <DHT.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP085_U.h>
+#include <ArduinoJson.h>
 
 // DHT11 sensor pins
 #define DHTPIN 8
@@ -28,25 +28,20 @@ int s1 = 6; //s1
 int s2 = 7; //s2
 
 void setup() {
-  // Bridge and Console startup
   pinMode(13,OUTPUT);
-  digitalWrite(13, LOW);
-  Bridge.begin();
+  digitalWrite(13, LOW);  
+  Bridge.begin();      // Bridge and Console startup
   Console.begin();
   digitalWrite(13, HIGH);
-
-  // Listen for incoming connection
-  server.noListenOnLocalhost();
+  
+  server.noListenOnLocalhost();  // Listen for incoming connection
   server.begin();
   
-    // Initialize DHT sensor
-  dht.begin();
-  
+  dht.begin(); // Initialize DHT sensor
   //Multiplexer initializing
   pinMode(s0,OUTPUT); //s0
   pinMode(s1,OUTPUT); //s1
   pinMode(s2,OUTPUT); //s2
-    
   // Initialise the sensor
   if (!bmp.begin())
   {
@@ -56,65 +51,83 @@ void setup() {
 }
 
 void loop() {
-  // Get clients coming from server
-  YunClient client = server.accept();
-
-  // There is a new client?
-  if (client) {
+  YunClient client = server.accept(); // Get clients coming from server
+  if (client) {  // There is a new request from client?
     Console.println("Client connected");
-    // Process request
-    RetriveSensorData(client);
-    // Close connection and free resources.
-    client.stop();
+    process(client);  // Process request
+    client.stop();    // Close connection and free resources.
   }
-
   delay(50); // Poll every 50ms
 }
 
-void RetriveSensorData(YunClient client)
-{
-  String value;
-  client.println("Status: 200");
-  client.println("Content-type: application/json; charset=utf-8");
-  client.println(); //mandatory blank line
-  client.print("{\"values\":[");
+void process(YunClient client){
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  String command = client.readStringUntil('/');
+  Console.println("New command received: " + command);
   
-  //Read Humidity
-  value = String(dht.readHumidity());
-  Console.print("Humidity: ");
-  Console.println(value);
-  client.print("{\"HumidityValue\": " + value + "}");
-  
-  //Read Light level
-  value = String(CalculateLux(AnalogReadFromMultiplexer(A0,1)));
-  Console.print("Light level: ");
-  Console.println(value);
-  client.print(",{\"LightValue\": " + value + "}");
-  
-  //Read Moisture level (0)
-  value = String(AnalogReadFromMultiplexer(A0,0));
-  Console.print("Moisture: ");
-  Console.println(value);
-  client.print(",{\"Moisture1Value\": " + value + "}");
-  
-  //Read pressure from BMP sensor
+  if(command == "getTemperature"){
+    root["temperature"] = getTemperature();
+    root.printTo(client);
+  }
+  else if(command == "getHumidity"){
+    root["humidity"] = getHumidity();
+    root.printTo(client);
+  }
+  else if(command == "getLight"){
+    root["light"] = getLight();
+    root.printTo(client);
+  }
+  else if(command == "getMoisture"){
+    int mNum = client.parseInt();
+    if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
+    else {                                          // http://ArduinoAddress/arduino/getMoisture
+      JsonArray& data = root.createNestedArray("moisture");
+      for(int i=0;i<=6;i++){
+        data.add(getMoisture(i+1));
+      }
+    }
+    root.printTo(client);
+  }
+  else if(command == "getPressure"){
+    root["pressure"] = getPressure();
+    root.printTo(client);
+  }
+  else{  // http://ArduinoAddress/arduino/get
+    root["temperature"] = getTemperature();
+    root["humidity"] = getHumidity();
+    root["light"] = getLight();
+    root["moisture"] = getMoisture(1);
+    root["pressure"] = getPressure();
+    
+    JsonArray& data = root.createNestedArray("moisture");
+      for(int i=0;i<=6;i++){
+        data.add(getMoisture(i+1));
+      }
+    root.printTo(client);
+  }
+}
+
+float getTemperature(){
+  return dht.readTemperature();
+}
+
+float getHumidity(){
+  return dht.readHumidity();  
+}
+
+float getPressure(){
   sensors_event_t event;
   bmp.getEvent(&event);
-  value = String(event.pressure);
-  Console.print("Barometric pressure: ");
-  Console.println(value);
-  client.print(",{\"PressureValue\": " + value + "}");
+  return event.pressure;
+}
 
-  //Read temperature from BMP sensor
-  float temperature;
-  bmp.getTemperature(&temperature);
-  value = String(temperature);
-  Console.print("Temperature: ");
-  Console.println(value);
-  client.print(",{\"TemperatureValue\": " + value + "}");
-  
-  client.print("]}");
-  Console.println("");
+int getMoisture(int sensorNumber){
+    AnalogReadFromMultiplexer(A0,sensorNumber);
+}
+
+int getLight(){
+  CalculateLux(AnalogReadFromMultiplexer(A0,0));  
 }
 
 int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
@@ -174,7 +187,7 @@ int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
 
 int CalculateLux(int AnalogRead)
 {
-	float Res0=10.0;	// Resistance in the circuit of sensor 0 (KOhms)
-	float Vout0=AnalogRead*0.0048828125;
-	return 500/(Res0*((5-Vout0)/Vout0));
+  float Res0=10.0;	// Resistance in the circuit of sensor 0 (KOhms)
+  float Vout0=AnalogRead*0.0048828125;
+  return 500/(Res0*((5-Vout0)/Vout0));
 }
