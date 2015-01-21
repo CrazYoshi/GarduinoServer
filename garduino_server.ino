@@ -26,6 +26,7 @@ YunServer server;
 int s0 = 5; //s0
 int s1 = 6; //s1
 int s2 = 7; //s2
+int pumpPin = 9;
 
 void setup() {
   pinMode(13,OUTPUT);
@@ -48,6 +49,9 @@ void setup() {
     Console.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
+  
+  pinMode(pumpPin,OUTPUT);    //Pump setup
+  digitalWrite(pumpPin,HIGH);
 }
 
 void loop() {
@@ -63,22 +67,23 @@ void loop() {
 void process(YunClient client){
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-  String command = client.readStringUntil('/');
+  String command = client.readStringUntil('\r');
   Console.println("New command received: " + command);
   
   if(command == "getTemperature"){
+    Console.println("Call getTemperature method");
     root["temperature"] = getTemperature();
-    root.printTo(client);
   }
   else if(command == "getHumidity"){
+    Console.println("Call getHumidity method");
     root["humidity"] = getHumidity();
-    root.printTo(client);
   }
   else if(command == "getLight"){
+    Console.println("Call getLight method");
     root["light"] = getLight();
-    root.printTo(client);
   }
   else if(command == "getMoisture"){
+    Console.println("Call getMoisture method");
     int mNum = client.parseInt();
     if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
     else {                                          // http://ArduinoAddress/arduino/getMoisture
@@ -87,13 +92,21 @@ void process(YunClient client){
         data.add(getMoisture(i+1));
       }
     }
-    root.printTo(client);
   }
   else if(command == "getPressure"){
+    Console.println("Call getPressure method");
     root["pressure"] = getPressure();
-    root.printTo(client);
+  }
+  else if(command == "startPump"){
+    Console.println("Call runPump method");
+    startPump();
+  }
+  else if(command == "stopPump"){
+    Console.println("Call runPump method");
+    stopPump();
   }
   else{  // http://ArduinoAddress/arduino/get
+    Console.println("No command method: " + command);
     root["temperature"] = getTemperature();
     root["humidity"] = getHumidity();
     root["light"] = getLight();
@@ -104,8 +117,8 @@ void process(YunClient client){
       for(int i=0;i<=6;i++){
         data.add(getMoisture(i+1));
       }
-    root.printTo(client);
   }
+  root.printTo(client);
 }
 
 float getTemperature(){
@@ -128,6 +141,14 @@ int getMoisture(int sensorNumber){
 
 int getLight(){
   CalculateLux(AnalogReadFromMultiplexer(A0,0));  
+}
+
+void startPump(){
+  digitalWrite(pumpPin,LOW);
+}
+
+void stopPump(){
+  digitalWrite(pumpPin,HIGH);
 }
 
 int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
