@@ -28,6 +28,10 @@ int s1 = 6; //s1
 int s2 = 7; //s2
 int pumpPin = 9;
 
+//HC SR04 Sensore ultrasuoni
+int triggerPort = 13;
+int echoPort = 12;
+
 void setup() {
   pinMode(13,OUTPUT);
   digitalWrite(13, LOW);  
@@ -43,6 +47,9 @@ void setup() {
   pinMode(s0,OUTPUT); //s0
   pinMode(s1,OUTPUT); //s1
   pinMode(s2,OUTPUT); //s2
+  //HC SR04
+  pinMode( triggerPort, OUTPUT );
+  pinMode( echoPort, INPUT );
   // Initialise the sensor
   if (!bmp.begin())
   {
@@ -82,6 +89,10 @@ void process(YunClient client){
     Console.println("Call getLight method");
     root["light"] = getLight();
   }
+  else if(command == "getWaterLevel"){
+    Console.println("Call getWaterLevel method");
+    root["water"] = getWaterLevel();
+  }
   else if(command == "getMoisture"){
     Console.println("Call getMoisture method");
     int mNum = client.parseInt();
@@ -112,6 +123,7 @@ void process(YunClient client){
     root["light"] = getLight();
     root["moisture"] = getMoisture(1);
     root["pressure"] = getPressure();
+    root["water"] = getWaterLevel();
     
     JsonArray& data = root.createNestedArray("moisture");
       for(int i=0;i<=6;i++){
@@ -127,6 +139,21 @@ float getTemperature(){
 
 float getHumidity(){
   return dht.readHumidity();  
+}
+
+long getWaterLevel(){
+  //porta bassa l'uscita del trigger
+  digitalWrite( triggerPort, LOW );
+  //invia un impulso di 10microsec su trigger
+  digitalWrite( triggerPort, HIGH );
+  delayMicroseconds( 10 );
+  digitalWrite( triggerPort, LOW );
+   
+  long duration = pulseIn( echoPort, HIGH );
+  long r;
+  if(duration > 38000 ) r = -1;
+  else r = 0.034 * duration / 2;
+  return r;  
 }
 
 float getPressure(){
