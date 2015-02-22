@@ -35,6 +35,18 @@ Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
 // will forward there all the HTTP requests for us.
 YunServer server;
 
+<<<<<<< HEAD
+=======
+int s0 = 5; //s0
+int s1 = 6; //s1
+int s2 = 7; //s2
+int pumpPin = 9;
+
+//HC SR04 Sensore ultrasuoni
+int triggerPort = 13;
+int echoPort = 12;
+
+>>>>>>> origin/master
 void setup() {
   Bridge.begin();      // Bridge and Console startup
   Console.begin();
@@ -44,18 +56,28 @@ void setup() {
   
   dht.begin(); // Initialize DHT sensor
   //Multiplexer initializing
+<<<<<<< HEAD
   pinMode(S0,OUTPUT); //s0
   pinMode(S1,OUTPUT); //s1
   pinMode(S2,OUTPUT); //s2
   //HC SR04
   pinMode( UStrigger, OUTPUT );
   pinMode( USecho, INPUT );
+=======
+  pinMode(s0,OUTPUT); //s0
+  pinMode(s1,OUTPUT); //s1
+  pinMode(s2,OUTPUT); //s2
+  //HC SR04
+  pinMode( triggerPort, OUTPUT );
+  pinMode( echoPort, INPUT );
+>>>>>>> origin/master
   // Initialise the sensor
   if (!bmp.begin())
   {
     Console.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
+<<<<<<< HEAD
   //Pump setup
   pinMode(PUMP1,OUTPUT);
   pinMode(PUMP2,OUTPUT);  
@@ -65,6 +87,11 @@ void setup() {
   digitalWrite(PUMP2,HIGH);
   digitalWrite(PUMP3,HIGH);
   digitalWrite(PUMP4,HIGH);
+=======
+  
+  pinMode(pumpPin,OUTPUT);    //Pump setup
+  digitalWrite(pumpPin,HIGH);
+>>>>>>> origin/master
 }
 
 void loop() {
@@ -115,6 +142,7 @@ void process(YunClient client){
     root["pressure"] = getPressure();
   }
   else if(command == "startPump"){
+<<<<<<< HEAD
     Console.println("Call startPump method");
     int pNum = client.parseInt();
     if(pNum) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
@@ -123,6 +151,14 @@ void process(YunClient client){
     Console.println("Call stopPump method");
     int pNum = client.parseInt();
     if(pNum) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
+=======
+    Console.println("Call runPump method");
+    startPump();
+  }
+  else if(command == "stopPump"){
+    Console.println("Call runPump method");
+    stopPump();
+>>>>>>> origin/master
   }
   else{  // http://ArduinoAddress/arduino/get
     Console.println("No command method: " + command);
@@ -151,6 +187,7 @@ float getHumidity(){
 
 long getWaterLevel(){
   //porta bassa l'uscita del trigger
+<<<<<<< HEAD
   digitalWrite( UStrigger, LOW );
   //invia un impulso di 10microsec su trigger
   digitalWrite( UStrigger, HIGH );
@@ -158,6 +195,15 @@ long getWaterLevel(){
   digitalWrite( UStrigger, LOW );
    
   long duration = pulseIn( USecho, HIGH );
+=======
+  digitalWrite( triggerPort, LOW );
+  //invia un impulso di 10microsec su trigger
+  digitalWrite( triggerPort, HIGH );
+  delayMicroseconds( 10 );
+  digitalWrite( triggerPort, LOW );
+   
+  long duration = pulseIn( echoPort, HIGH );
+>>>>>>> origin/master
   long r;
   if(duration > 38000 ) r = -1;
   else r = 0.034 * duration / 2;
@@ -178,6 +224,7 @@ int getLight(){
   CalculateLux(AnalogReadFromMultiplexer(A0,0));  
 }
 
+<<<<<<< HEAD
 void startPump(int pumpNumber){
   switch(pumpNumber)
   {
@@ -212,6 +259,14 @@ void stopPump(int pumpNumber){
       digitalWrite(PUMP4,HIGH);
       break;
   }
+=======
+void startPump(){
+  digitalWrite(pumpPin,LOW);
+}
+
+void stopPump(){
+  digitalWrite(pumpPin,HIGH);
+>>>>>>> origin/master
 }
 
 int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
