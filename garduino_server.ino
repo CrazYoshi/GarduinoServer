@@ -12,42 +12,59 @@
 #include <Adafruit_BMP085_U.h>
 #include <ArduinoJson.h>
 
+// MULTIPLEXER pins
+#define S0 5
+#define S1 6
+#define S2 7
+// ULTRASONIC sensor pins
+#define UStrigger 4
+#define USecho 13
+// PUMP pins
+#define PUMP1 9
+#define PUMP2 10
+#define PUMP3 11
+#define PUMP4 12
 // DHT11 sensor pins
 #define DHTPIN 8
 #define DHTTYPE DHT11
-
 // DHT & BMP instances
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
+
 // Listen on default port 5555, the webserver on the Yun
 // will forward there all the HTTP requests for us.
 YunServer server;
 
-int s0 = 5; //s0
-int s1 = 6; //s1
-int s2 = 7; //s2
-
 void setup() {
-  pinMode(13,OUTPUT);
-  digitalWrite(13, LOW);  
   Bridge.begin();      // Bridge and Console startup
   Console.begin();
-  digitalWrite(13, HIGH);
   
   server.noListenOnLocalhost();  // Listen for incoming connection
   server.begin();
   
   dht.begin(); // Initialize DHT sensor
   //Multiplexer initializing
-  pinMode(s0,OUTPUT); //s0
-  pinMode(s1,OUTPUT); //s1
-  pinMode(s2,OUTPUT); //s2
+  pinMode(S0,OUTPUT); //s0
+  pinMode(S1,OUTPUT); //s1
+  pinMode(S2,OUTPUT); //s2
+  //HC SR04
+  pinMode( UStrigger, OUTPUT );
+  pinMode( USecho, INPUT );
   // Initialise the sensor
   if (!bmp.begin())
   {
     Console.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
+  //Pump setup
+  pinMode(PUMP1,OUTPUT);
+  pinMode(PUMP2,OUTPUT);  
+  pinMode(PUMP3,OUTPUT);
+  pinMode(PUMP4,OUTPUT);
+  digitalWrite(PUMP1,HIGH);
+  digitalWrite(PUMP2,HIGH);
+  digitalWrite(PUMP3,HIGH);
+  digitalWrite(PUMP4,HIGH);
 }
 
 void loop() {
@@ -63,22 +80,27 @@ void loop() {
 void process(YunClient client){
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-  String command = client.readStringUntil('/');
+  String command = client.readStringUntil('\r');
   Console.println("New command received: " + command);
   
   if(command == "getTemperature"){
+    Console.println("Call getTemperature method");
     root["temperature"] = getTemperature();
-    root.printTo(client);
   }
   else if(command == "getHumidity"){
+    Console.println("Call getHumidity method");
     root["humidity"] = getHumidity();
-    root.printTo(client);
   }
   else if(command == "getLight"){
+    Console.println("Call getLight method");
     root["light"] = getLight();
-    root.printTo(client);
+  }
+  else if(command == "getWaterLevel"){
+    Console.println("Call getWaterLevel method");
+    root["water"] = getWaterLevel();
   }
   else if(command == "getMoisture"){
+    Console.println("Call getMoisture method");
     int mNum = client.parseInt();
     if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
     else {                                          // http://ArduinoAddress/arduino/getMoisture
@@ -87,25 +109,36 @@ void process(YunClient client){
         data.add(getMoisture(i+1));
       }
     }
-    root.printTo(client);
   }
   else if(command == "getPressure"){
+    Console.println("Call getPressure method");
     root["pressure"] = getPressure();
-    root.printTo(client);
+  }
+  else if(command == "startPump"){
+    Console.println("Call startPump method");
+    int pNum = client.parseInt();
+    if(pNum) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
+  }
+  else if(command == "stopPump"){
+    Console.println("Call stopPump method");
+    int pNum = client.parseInt();
+    if(pNum) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
   }
   else{  // http://ArduinoAddress/arduino/get
+    Console.println("No command method: " + command);
     root["temperature"] = getTemperature();
     root["humidity"] = getHumidity();
     root["light"] = getLight();
     root["moisture"] = getMoisture(1);
     root["pressure"] = getPressure();
+    root["water"] = getWaterLevel();
     
     JsonArray& data = root.createNestedArray("moisture");
       for(int i=0;i<=6;i++){
         data.add(getMoisture(i+1));
       }
-    root.printTo(client);
   }
+  root.printTo(client);
 }
 
 float getTemperature(){
@@ -114,6 +147,21 @@ float getTemperature(){
 
 float getHumidity(){
   return dht.readHumidity();  
+}
+
+long getWaterLevel(){
+  //porta bassa l'uscita del trigger
+  digitalWrite( UStrigger, LOW );
+  //invia un impulso di 10microsec su trigger
+  digitalWrite( UStrigger, HIGH );
+  delayMicroseconds( 10 );
+  digitalWrite( UStrigger, LOW );
+   
+  long duration = pulseIn( USecho, HIGH );
+  long r;
+  if(duration > 38000 ) r = -1;
+  else r = 0.034 * duration / 2;
+  return r;  
 }
 
 float getPressure(){
@@ -130,56 +178,92 @@ int getLight(){
   CalculateLux(AnalogReadFromMultiplexer(A0,0));  
 }
 
+void startPump(int pumpNumber){
+  switch(pumpNumber)
+  {
+    case 1:
+      digitalWrite(PUMP1,LOW);
+      break;
+    case 2:
+      digitalWrite(PUMP2,LOW);
+      break;
+    case 3:
+      digitalWrite(PUMP3,LOW);
+      break;
+    case 4:
+      digitalWrite(PUMP4,LOW);
+      break;
+  }
+}
+
+void stopPump(int pumpNumber){
+  switch(pumpNumber)
+  {
+    case 1:
+      digitalWrite(PUMP1,HIGH);
+      break;
+    case 2:
+      digitalWrite(PUMP2,HIGH);
+      break;
+    case 3:
+      digitalWrite(PUMP3,HIGH);
+      break;
+    case 4:
+      digitalWrite(PUMP4,HIGH);
+      break;
+  }
+}
+
 int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
 {
   switch(MuxPin)
   {
     case 0:
-      digitalWrite(s0,LOW);
-      digitalWrite(s1,LOW);
-      digitalWrite(s2,LOW);
+      digitalWrite(S0,LOW);
+      digitalWrite(S1,LOW);
+      digitalWrite(S2,LOW);
       analogRead(ReadFromPin);
       break;
     case 1:
-      digitalWrite(s0,HIGH);
-      digitalWrite(s1,LOW);
-      digitalWrite(s2,LOW);
+      digitalWrite(S0,HIGH);
+      digitalWrite(S1,LOW);
+      digitalWrite(S2,LOW);
       analogRead(ReadFromPin);
       break;
     case 2:
-      digitalWrite(s0,LOW);
-      digitalWrite(s1,HIGH);
-      digitalWrite(s2,LOW);
+      digitalWrite(S0,LOW);
+      digitalWrite(S1,HIGH);
+      digitalWrite(S2,LOW);
       analogRead(ReadFromPin);
       break;
     case 3:
-      digitalWrite(s0,HIGH);
-      digitalWrite(s1,HIGH);
-      digitalWrite(s2,LOW);
+      digitalWrite(S0,HIGH);
+      digitalWrite(S1,HIGH);
+      digitalWrite(S2,LOW);
       analogRead(ReadFromPin);
       break;
     case 4:
-      digitalWrite(s0,LOW);
-      digitalWrite(s1,LOW);
-      digitalWrite(s2,HIGH);
+      digitalWrite(S0,LOW);
+      digitalWrite(S1,LOW);
+      digitalWrite(S2,HIGH);
       analogRead(ReadFromPin);
       break;
     case 5:
-      digitalWrite(s0,HIGH);
-      digitalWrite(s1,LOW);
-      digitalWrite(s2,HIGH);
+      digitalWrite(S0,HIGH);
+      digitalWrite(S1,LOW);
+      digitalWrite(S2,HIGH);
       analogRead(ReadFromPin);
       break;
     case 6:
-      digitalWrite(s0,LOW);
-      digitalWrite(s1,HIGH);
-      digitalWrite(s2,HIGH);
+      digitalWrite(S0,LOW);
+      digitalWrite(S1,HIGH);
+      digitalWrite(S2,HIGH);
       analogRead(ReadFromPin);
       break;
     case 7:
-      digitalWrite(s0,HIGH);
-      digitalWrite(s1,HIGH);
-      digitalWrite(s2,HIGH);
+      digitalWrite(S0,HIGH);
+      digitalWrite(S1,HIGH);
+      digitalWrite(S2,HIGH);
       analogRead(ReadFromPin);
       break;
   }
