@@ -51,11 +51,12 @@ void setup() {
   pinMode( UStrigger, OUTPUT );
   pinMode( USecho, INPUT );
   // Initialise the sensor
-  if (!bmp.begin())
+  bmp.begin();
+  /*if (!bmp.begin())
   {
     Console.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
     while (1);
-  }
+  }*/
   //Pump setup
   pinMode(PUMP1,OUTPUT);
   pinMode(PUMP2,OUTPUT);  
@@ -105,8 +106,8 @@ void process(YunClient client){
     if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
     else {                                          // http://ArduinoAddress/arduino/getMoisture
       JsonArray& data = root.createNestedArray("moisture");
-      for(int i=0;i<=6;i++){
-        data.add(getMoisture(i+1));
+      for(int i=1;i<8;i++){
+        data.add(getMoisture(i));
       }
     }
   }
@@ -134,8 +135,8 @@ void process(YunClient client){
     root["water"] = getWaterLevel();
     
     JsonArray& data = root.createNestedArray("moisture");
-      for(int i=0;i<=6;i++){
-        data.add(getMoisture(i+1));
+      for(int i=1;i<8;i++){
+        data.add(getMoisture(i));
       }
   }
   root.printTo(client);
@@ -171,7 +172,7 @@ float getPressure(){
 }
 
 int getMoisture(int sensorNumber){
-    AnalogReadFromMultiplexer(A0,sensorNumber);
+    return AnalogReadFromMultiplexer(A0,sensorNumber);
 }
 
 int getLight(){
@@ -216,57 +217,59 @@ void stopPump(int pumpNumber){
 
 int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
 {
+  int r = 0;
   switch(MuxPin)
   {
     case 0:
       digitalWrite(S0,LOW);
       digitalWrite(S1,LOW);
       digitalWrite(S2,LOW);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 1:
       digitalWrite(S0,HIGH);
       digitalWrite(S1,LOW);
       digitalWrite(S2,LOW);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 2:
       digitalWrite(S0,LOW);
       digitalWrite(S1,HIGH);
       digitalWrite(S2,LOW);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 3:
       digitalWrite(S0,HIGH);
       digitalWrite(S1,HIGH);
       digitalWrite(S2,LOW);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 4:
       digitalWrite(S0,LOW);
       digitalWrite(S1,LOW);
       digitalWrite(S2,HIGH);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 5:
       digitalWrite(S0,HIGH);
       digitalWrite(S1,LOW);
       digitalWrite(S2,HIGH);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 6:
       digitalWrite(S0,LOW);
       digitalWrite(S1,HIGH);
       digitalWrite(S2,HIGH);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
     case 7:
       digitalWrite(S0,HIGH);
       digitalWrite(S1,HIGH);
       digitalWrite(S2,HIGH);
-      analogRead(ReadFromPin);
+      r = analogRead(ReadFromPin);
       break;
   }
+  return r;
 }
 
 int CalculateLux(int AnalogRead)
