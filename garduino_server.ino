@@ -81,7 +81,7 @@ void loop() {
 void process(YunClient client){
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-  String command = client.readStringUntil('\r');
+  String command = client.readStringUntil('/');
   Console.println("New command received: " + command);
   
   if(command == "getTemperature"){
@@ -103,6 +103,8 @@ void process(YunClient client){
   else if(command == "getMoisture"){
     Console.println("Call getMoisture method");
     int mNum = client.parseInt();
+    Console.print("Moisture number: ");
+    Console.println(mNum);
     if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
     else {                                          // http://ArduinoAddress/arduino/getMoisture
       JsonArray& data = root.createNestedArray("moisture");
@@ -118,11 +120,15 @@ void process(YunClient client){
   else if(command == "startPump"){
     Console.println("Call startPump method");
     int pNum = client.parseInt();
+    Console.print("Pump number: ");
+    Console.println(pNum);
     if(pNum) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
   }
   else if(command == "stopPump"){
     Console.println("Call stopPump method");
     int pNum = client.parseInt();
+    Console.print("Pump number: ");
+    Console.println(pNum);
     if(pNum) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
   }
   else{  // http://ArduinoAddress/arduino/get
