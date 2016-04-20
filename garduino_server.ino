@@ -1,8 +1,3 @@
-//    # Moisture sensor value description
-//    # 0  ~300     dry soil
-//    # 300~700     humid soil
-//    # 700~950     in water
-//    #http://ArduinoAddress/arduino/command
 #include <Bridge.h>
 #include <YunServer.h>
 #include <YunClient.h>
@@ -12,155 +7,112 @@
 #include <Adafruit_BMP085_U.h>
 #include <ArduinoJson.h>
 
-// MULTIPLEXER pins
-#define S0 5
-#define S1 6
-#define S2 7
-// ULTRASONIC sensor pins
-#define UStrigger 4
+#define S1 5        // MULTIPLEXER pins
+#define S2 6
+#define S3 7
+
+#define UStrigger 4 // ULTRASONIC sensor pins
 #define USecho 13
-// PUMP pins
-#define PUMP1 9
+
+#define PUMP1 9     // PUMP pins
 #define PUMP2 10
 #define PUMP3 11
-#define PUMP4 12
-// DHT11 sensor pins
-#define DHTPIN 8
-#define DHTTYPE DHT11
-// DHT & BMP instances
-DHT dht(DHTPIN, DHTTYPE);
-Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
 
-// Listen on default port 5555, the webserver on the Yun
-// will forward there all the HTTP requests for us.
-YunServer server;
+#define TRANSISTOR 12 // Moistrure Transistor PIN
+
+#define DHTPIN 8    // DHT11 sensor pins
+#define DHTTYPE DHT11
+
+#define MOISTURE A0
+#define LIGHT A1
+
+DHT dht(DHTPIN, DHTTYPE); // DHT instances
+Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085); // BMP instances
+
+YunServer server;     // Listen on default port 5555, the webserver on the Yun will forward there all the HTTP requests for us.
 
 void setup() {
-  Bridge.begin();      // Bridge and Console startup
+  Bridge.begin();     // Bridge and Console startup
   Console.begin();
-  
+
   server.noListenOnLocalhost();  // Listen for incoming connection
   server.begin();
+
+  dht.begin();  // Initialize DHT sensor
+  bmp.begin();  // Initialise the sensor
   
-  dht.begin(); // Initialize DHT sensor
-  //Multiplexer initializing
-  pinMode(S0,OUTPUT); //s0
-  pinMode(S1,OUTPUT); //s1
-  pinMode(S2,OUTPUT); //s2
-  //HC SR04
-  pinMode( UStrigger, OUTPUT );
+  pinMode(S1,OUTPUT);           //Multiplexer initializing
+  pinMode(S2,OUTPUT); 
+  pinMode(S3,OUTPUT); 
+  
+  pinMode( UStrigger, OUTPUT ); //HC SR04
   pinMode( USecho, INPUT );
-  // Initialise the sensor
-  bmp.begin();
-  /*if (!bmp.begin())
-  {
-    Console.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
-    while (1);
-  }*/
-  //Pump setup
-  pinMode(PUMP1,OUTPUT);
+  
+  pinMode(PUMP1,OUTPUT);        //Pump setup
   pinMode(PUMP2,OUTPUT);  
   pinMode(PUMP3,OUTPUT);
-  pinMode(PUMP4,OUTPUT);
   digitalWrite(PUMP1,HIGH);
   digitalWrite(PUMP2,HIGH);
   digitalWrite(PUMP3,HIGH);
-  digitalWrite(PUMP4,HIGH);
+
+  pinMode(TRANSISTOR,OUTPUT); // Moisture transistor s
 }
 
 void loop() {
   YunClient client = server.accept(); // Get clients coming from server
-  if (client) {  // There is a new request from client?
+  if (client) {                       // There is a new request from client?
     Console.println("Client connected");
-    process(client);  // Process request
-    client.stop();    // Close connection and free resources.
+    process(client);                  // Process request
+    client.stop();                    // Close connection and free resources.
   }
-  delay(50); // Poll every 50ms
+  delay(200);                         // Poll every 200ms
 }
 
 void process(YunClient client){
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
+  JsonArray& data = root.createNestedArray("moisture");
   String command = client.readStringUntil('/');
-  Console.println("New command received: " + command);
+  command.trim();
   
-  if(command == "getTemperature"){
-    Console.println("Call getTemperature method");
-    root["temperature"] = getTemperature();
+  Console.print("Command received: ");
+  Console.println(command);
+
+  if(command == "startPump"){
+    int pumpNum = client.parseInt();
+    Console.print("Pump number selected: ");
+    Console.println(pumpNum);
+
+    startPump(pumpNum);
   }
-  else if(command == "getHumidity"){
-    Console.println("Call getHumidity method");
-    root["humidity"] = getHumidity();
+
+  if(command == "stopPump"){
+    int pumpNum = client.parseInt();
+    Console.print("Pump number selected: ");
+    Console.println(pumpNum);
+
+    stopPump(pumpNum);
   }
-  else if(command == "getLight"){
-    Console.println("Call getLight method");
-    root["light"] = getLight();
-  }
-  else if(command == "getWaterLevel"){
-    Console.println("Call getWaterLevel method");
-    root["water"] = getWaterLevel();
-  }
-  else if(command == "getMoisture"){
-    Console.println("Call getMoisture method");
-    int mNum = client.parseInt();
-    Console.print("Moisture number: ");
-    Console.println(mNum);
-    if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
-    else {                                          // http://ArduinoAddress/arduino/getMoisture
-      JsonArray& data = root.createNestedArray("moisture");
-      for(int i=1;i<8;i++){
-        data.add(getMoisture(i));
-      }
-    }
-  }
-  else if(command == "getPressure"){
-    Console.println("Call getPressure method");
-    root["pressure"] = getPressure();
-  }
-  else if(command == "startPump"){
-    Console.println("Call startPump method");
-    int pNum = client.parseInt();
-    Console.print("Pump number: ");
-    Console.println(pNum);
-    if(pNum) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
-  }
-  else if(command == "stopPump"){
-    Console.println("Call stopPump method");
-    int pNum = client.parseInt();
-    Console.print("Pump number: ");
-    Console.println(pNum);
-    if(pNum) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
-  }
-  else{  // http://ArduinoAddress/arduino/get
-    Console.println("No command method: " + command);
-    root["temperature"] = getTemperature();
-    root["humidity"] = getHumidity();
-    root["light"] = getLight();
-    root["moisture"] = getMoisture(1);
-    root["pressure"] = getPressure();
-    root["water"] = getWaterLevel();
-    
-    JsonArray& data = root.createNestedArray("moisture");
-      for(int i=1;i<8;i++){
-        data.add(getMoisture(i));
-      }
-  }
+  
+  root["temperature"] = dht.readTemperature();
+  root["humidity"] = dht.readHumidity();
+  root["light"] = Lumen(analogRead(LIGHT));
+  root["pressure"] = getPressure();
+  root["water"] = getWaterLevel();
+  getMoisture(data);
+  
   root.printTo(client);
 }
 
-float getTemperature(){
-  return dht.readTemperature();
-}
-
-float getHumidity(){
-  return dht.readHumidity();  
+float getPressure(){
+  sensors_event_t event;
+  bmp.getEvent(&event);
+  return event.pressure;
 }
 
 long getWaterLevel(){
-  //porta bassa l'uscita del trigger
-  digitalWrite( UStrigger, LOW );
-  //invia un impulso di 10microsec su trigger
-  digitalWrite( UStrigger, HIGH );
+  digitalWrite( UStrigger, LOW );   // porta bassa l'uscita del trigger
+  digitalWrite( UStrigger, HIGH );  // invia un impulso di 10microsec su trigger
   delayMicroseconds( 10 );
   digitalWrite( UStrigger, LOW );
    
@@ -171,116 +123,62 @@ long getWaterLevel(){
   return r;  
 }
 
-float getPressure(){
-  sensors_event_t event;
-  bmp.getEvent(&event);
-  return event.pressure;
+int Lumen(int lightSensorValue)
+{
+  Console.print("Light sensor value: ");
+  Console.println(lightSensorValue);
+  
+  float Res0=10.0;  // Resistance in the circuit of sensor 0 (KOhms)
+  float Vout0=lightSensorValue*0.0048828125;
+  return 500/(Res0*((5-Vout0)/Vout0));
 }
 
-int getMoisture(int sensorNumber){
-    return AnalogReadFromMultiplexer(A0,sensorNumber);
+// MOISTURE function
+void getMoisture(JsonArray& array){
+  int r0 = 0, r1 = 0, r2 = 0;
+  
+  digitalWrite(TRANSISTOR, LOW); // Enable sensors reading
+
+  for (int count=0; count<=7; count++) {  
+    r0 = bitRead(count,0);    // select the bit   
+    r1 = bitRead(count,1);   
+    r2 = bitRead(count,2);
+
+    digitalWrite(S1, r0);
+    digitalWrite(S2, r1);
+    digitalWrite(S3, r2);
+
+    int sensorRead = analogRead(MOISTURE);
+    array.add(sensorRead);
+
+    Console.print("Moisture sensor ");           // LOG
+    Console.print(count);
+    Console.print(" value: ");
+    Console.println(sensorRead);
+  }
+  
+  digitalWrite(TRANSISTOR, HIGH);  // Disable sensors reading
 }
 
-int getLight(){
-  CalculateLux(AnalogReadFromMultiplexer(A0,0));  
+// PUMP functions
+int getPump(int number){
+  switch(number){
+    case 1: return PUMP1;     //Get the PIN number from the number given
+    case 2: return PUMP2;
+    case 3: return PUMP3;
+  }
 }
 
 void startPump(int pumpNumber){
-  switch(pumpNumber)
-  {
-    case 1:
-      digitalWrite(PUMP1,LOW);
-      break;
-    case 2:
-      digitalWrite(PUMP2,LOW);
-      break;
-    case 3:
-      digitalWrite(PUMP3,LOW);
-      break;
-    case 4:
-      digitalWrite(PUMP4,LOW);
-      break;
-  }
+  Console.print('Starting pump ');
+  Console.println(pumpNumber);
+  
+  digitalWrite(getPump(pumpNumber),LOW);
 }
 
 void stopPump(int pumpNumber){
-  switch(pumpNumber)
-  {
-    case 1:
-      digitalWrite(PUMP1,HIGH);
-      break;
-    case 2:
-      digitalWrite(PUMP2,HIGH);
-      break;
-    case 3:
-      digitalWrite(PUMP3,HIGH);
-      break;
-    case 4:
-      digitalWrite(PUMP4,HIGH);
-      break;
-  }
-}
-
-int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
-{
-  int r = 0;
-  switch(MuxPin)
-  {
-    case 0:
-      digitalWrite(S0,LOW);
-      digitalWrite(S1,LOW);
-      digitalWrite(S2,LOW);
-      r = analogRead(ReadFromPin);
-      break;
-    case 1:
-      digitalWrite(S0,HIGH);
-      digitalWrite(S1,LOW);
-      digitalWrite(S2,LOW);
-      r = analogRead(ReadFromPin);
-      break;
-    case 2:
-      digitalWrite(S0,LOW);
-      digitalWrite(S1,HIGH);
-      digitalWrite(S2,LOW);
-      r = analogRead(ReadFromPin);
-      break;
-    case 3:
-      digitalWrite(S0,HIGH);
-      digitalWrite(S1,HIGH);
-      digitalWrite(S2,LOW);
-      r = analogRead(ReadFromPin);
-      break;
-    case 4:
-      digitalWrite(S0,LOW);
-      digitalWrite(S1,LOW);
-      digitalWrite(S2,HIGH);
-      r = analogRead(ReadFromPin);
-      break;
-    case 5:
-      digitalWrite(S0,HIGH);
-      digitalWrite(S1,LOW);
-      digitalWrite(S2,HIGH);
-      r = analogRead(ReadFromPin);
-      break;
-    case 6:
-      digitalWrite(S0,LOW);
-      digitalWrite(S1,HIGH);
-      digitalWrite(S2,HIGH);
-      r = analogRead(ReadFromPin);
-      break;
-    case 7:
-      digitalWrite(S0,HIGH);
-      digitalWrite(S1,HIGH);
-      digitalWrite(S2,HIGH);
-      r = analogRead(ReadFromPin);
-      break;
-  }
-  return r;
-}
-
-int CalculateLux(int AnalogRead)
-{
-  float Res0=10.0;	// Resistance in the circuit of sensor 0 (KOhms)
-  float Vout0=AnalogRead*0.0048828125;
-  return 500/(Res0*((5-Vout0)/Vout0));
+  Console.print('Stopping pump ');
+  Console.println(pumpNumber);
+  
+  digitalWrite(getPump(pumpNumber),HIGH);
 }
