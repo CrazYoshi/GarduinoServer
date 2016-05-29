@@ -1,6 +1,6 @@
 #include <Bridge.h>
-#include <YunServer.h>
-#include <YunClient.h>
+#include <BridgeServer.h>
+#include <BridgeClient.h>
 #include <Wire.h>
 #include <DHT.h>
 #include <Adafruit_Sensor.h>
@@ -29,17 +29,20 @@
 DHT dht(DHTPIN, DHTTYPE); // DHT instances
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085); // BMP instances
 
-YunServer server;     // Listen on default port 5555, the webserver on the Yun will forward there all the HTTP requests for us.
+BridgeServer server;     // Listen on default port 5555, the webserver on the Yun will forward there all the HTTP requests for us.
 
 void setup() {
-  Bridge.begin();     // Bridge and Console startup
-  Console.begin();
+  Bridge.begin();     // Bridge and Serial startup
+  Serial.begin(9600);
 
   server.noListenOnLocalhost();  // Listen for incoming connection
   server.begin();
 
-  dht.begin();  // Initialize DHT sensor
-  bmp.begin();  // Initialise the sensor
+  dht.begin();
+  if(!bmp.begin())// Initialise the sensor
+  {
+    Serial.print("No BMP085 detected ... Check your wiring or I2C ADDR!");/* There was a problem detecting the BMP085 ... check your connections */
+  }
   
   pinMode(S1,OUTPUT);           //Multiplexer initializing
   pinMode(S2,OUTPUT); 
@@ -56,40 +59,41 @@ void setup() {
   digitalWrite(PUMP3,HIGH);
 
   pinMode(TRANSISTOR,OUTPUT); // Moisture transistor s
+  digitalWrite(TRANSISTOR, HIGH);  // Disable sensors reading
 }
 
 void loop() {
-  YunClient client = server.accept(); // Get clients coming from server
+  BridgeClient client = server.accept(); // Get clients coming from server
   if (client) {                       // There is a new request from client?
-    Console.println("Client connected");
+    Serial.println("Client connected");
     process(client);                  // Process request
     client.stop();                    // Close connection and free resources.
   }
   delay(200);                         // Poll every 200ms
 }
 
-void process(YunClient client){
+void process(BridgeClient client){
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   JsonArray& data = root.createNestedArray("moisture");
   String command = client.readStringUntil('/');
   command.trim();
   
-  Console.print("Command received: ");
-  Console.println(command);
+  Serial.print("Command received: ");
+  Serial.println(command);
 
   if(command == "startPump"){
     int pumpNum = client.parseInt();
-    Console.print("Pump number selected: ");
-    Console.println(pumpNum);
+    Serial.print("Pump number selected: ");
+    Serial.println(pumpNum);
 
     startPump(pumpNum);
   }
 
   if(command == "stopPump"){
     int pumpNum = client.parseInt();
-    Console.print("Pump number selected: ");
-    Console.println(pumpNum);
+    Serial.print("Pump number selected: ");
+    Serial.println(pumpNum);
 
     stopPump(pumpNum);
   }
@@ -125,8 +129,8 @@ long getWaterLevel(){
 
 int Lumen(int lightSensorValue)
 {
-  Console.print("Light sensor value: ");
-  Console.println(lightSensorValue);
+  Serial.print("Light sensor value: ");
+  Serial.println(lightSensorValue);
   
   float Res0=10.0;  // Resistance in the circuit of sensor 0 (KOhms)
   float Vout0=lightSensorValue*0.0048828125;
@@ -147,14 +151,14 @@ void getMoisture(JsonArray& array){
     digitalWrite(S1, r0);
     digitalWrite(S2, r1);
     digitalWrite(S3, r2);
-
+    
     int sensorRead = analogRead(MOISTURE);
     array.add(sensorRead);
-
-    Console.print("Moisture sensor ");           // LOG
-    Console.print(count);
-    Console.print(" value: ");
-    Console.println(sensorRead);
+    
+    Serial.print("Moisture sensor ");           // LOG
+    Serial.print(count);
+    Serial.print(" value: ");
+    Serial.println(sensorRead);
   }
   
   digitalWrite(TRANSISTOR, HIGH);  // Disable sensors reading
@@ -170,15 +174,15 @@ int getPump(int number){
 }
 
 void startPump(int pumpNumber){
-  Console.print('Starting pump ');
-  Console.println(pumpNumber);
+  Serial.print("Starting pump ");
+  Serial.println(pumpNumber);
   
   digitalWrite(getPump(pumpNumber),LOW);
 }
 
 void stopPump(int pumpNumber){
-  Console.print('Stopping pump ');
-  Console.println(pumpNumber);
+  Serial.print("Stopping pump ");
+  Serial.println(pumpNumber);
   
   digitalWrite(getPump(pumpNumber),HIGH);
 }
