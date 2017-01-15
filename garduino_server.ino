@@ -4,8 +4,8 @@
 //    # 700~950     in water
 //    #http://ArduinoAddress/arduino/command
 #include <Bridge.h>
-#include <YunServer.h>
-#include <YunClient.h>
+#include <BridgeClient.h>
+#include <BridgeServer.h>
 #include <Wire.h>
 #include <DHT.h>
 #include <Adafruit_Sensor.h>
@@ -33,7 +33,7 @@ Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
 
 // Listen on default port 5555, the webserver on the Yun
 // will forward there all the HTTP requests for us.
-YunServer server;
+BridgeServer server;
 
 void setup() {
   Bridge.begin();      // Bridge and Console startup
@@ -69,7 +69,7 @@ void setup() {
 }
 
 void loop() {
-  YunClient client = server.accept(); // Get clients coming from server
+  BridgeClient client = server.accept(); // Get clients coming from server
   if (client) {  // There is a new request from client?
     Console.println("Client connected");
     process(client);  // Process request
@@ -78,10 +78,10 @@ void loop() {
   delay(50); // Poll every 50ms
 }
 
-void process(YunClient client){
+void process(BridgeClient client){
   DynamicJsonBuffer jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
-  String command = client.readStringUntil('/');
+  String command = client.readStringUntil('\r');
   Console.println("New command received: " + command);
   
   if(command == "getTemperature"){
@@ -100,13 +100,17 @@ void process(YunClient client){
     Console.println("Call getWaterLevel method");
     root["water"] = getWaterLevel();
   }
-  else if(command == "getMoisture"){
+  else if(command.indexOf("getMoisture") != -1){
     Console.println("Call getMoisture method");
-    int mNum = client.parseInt();
-    Console.print("Moisture number: ");
-    Console.println(mNum);
-    if(mNum) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
-    else {                                          // http://ArduinoAddress/arduino/getMoisture
+    int mNum = -1;
+    if(command.lastIndexOf('/') != -1){
+      mNum = command.substring(command.lastIndexOf('/')  + 1).toInt();
+      Console.print("Moisture number: ");
+      Console.println(mNum);
+    }
+    
+    if(mNum != -1) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
+    else {                                                // http://ArduinoAddress/arduino/getMoisture
       JsonArray& data = root.createNestedArray("moisture");
       for(int i=1;i<8;i++){
         data.add(getMoisture(i));
@@ -117,21 +121,27 @@ void process(YunClient client){
     Console.println("Call getPressure method");
     root["pressure"] = getPressure();
   }
-  else if(command == "startPump"){
+  else if(command.indexOf("startPump") != -1){
     Console.println("Call startPump method");
-    int pNum = client.parseInt();
-    Console.print("Pump number: ");
-    Console.println(pNum);
-    if(pNum) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
+    int pNum = -1;
+    if(command.lastIndexOf('/') != -1){
+      pNum = command.substring(command.lastIndexOf('/') + 1).toInt();
+      Console.print("Pump number: ");
+      Console.println(pNum);
+    }
+    if(pNum != -1) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
   }
-  else if(command == "stopPump"){
+  else if(command.indexOf("stopPump") != -1){
     Console.println("Call stopPump method");
-    int pNum = client.parseInt();
-    Console.print("Pump number: ");
-    Console.println(pNum);
-    if(pNum) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
+    int pNum = -1;
+    if(command.lastIndexOf('/') != -1){
+      pNum = command.substring(command.lastIndexOf('/')  + 1).toInt();
+      Console.print("Pump number: ");
+      Console.println(pNum);
+    }
+    if(pNum != -1) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
   }
-  else{  // http://ArduinoAddress/arduino/get
+  else if(command == "getAll"){  // http://ArduinoAddress/arduino/getAll
     Console.println("No command method: " + command);
     root["temperature"] = getTemperature();
     root["humidity"] = getHumidity();
@@ -224,8 +234,8 @@ void stopPump(int pumpNumber){
 int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
 {
   int r = 0;
-   Console.print(ReadFromPin);
-   Console.print(" pin value: ");
+  //Console.print(ReadFromPin);
+  //Console.print(" pin value: ");
   switch(MuxPin)
   {
     case 0:
@@ -233,7 +243,6 @@ int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
       digitalWrite(S1,LOW);
       digitalWrite(S2,LOW);
       r = analogRead(ReadFromPin);
-      Console.println(r);
       break;
     case 1:
       digitalWrite(S0,HIGH);
@@ -278,6 +287,7 @@ int AnalogReadFromMultiplexer(int ReadFromPin, int MuxPin)
       r = analogRead(ReadFromPin);
       break;
   }
+  //Console.println(r);
   return r;
 }
 
