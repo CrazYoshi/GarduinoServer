@@ -112,7 +112,7 @@ void process(BridgeClient client){
     if(mNum != -1) root["moisture"] = getMoisture(mNum);  // http://ArduinoAddress/arduino/getMoisture/1
     else {                                                // http://ArduinoAddress/arduino/getMoisture
       JsonArray& data = root.createNestedArray("moisture");
-      for(int i=1;i<8;i++){
+      for(int i=0;i<8;i++){
         data.add(getMoisture(i));
       }
     }
@@ -151,7 +151,7 @@ void process(BridgeClient client){
     root["water"] = getWaterLevel();
     
     JsonArray& data = root.createNestedArray("moisture");
-      for(int i=1;i<8;i++){
+      for(int i=0;i<8;i++){
         data.add(getMoisture(i));
       }
   }
@@ -192,7 +192,7 @@ int getMoisture(int sensorNumber){
 }
 
 int getLight(){
-  CalculateLux(AnalogReadFromMultiplexer(A0,0));  
+    return CalculateLux(analogRead(A1));  
 }
 
 void startPump(int pumpNumber){
