@@ -8,6 +8,7 @@
 #include <BridgeServer.h>
 #include <Wire.h>
 #include <DHT.h>
+#include <Pump.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP085_U.h>
 #include <ArduinoJson.h>
@@ -19,18 +20,17 @@
 // ULTRASONIC sensor pins
 #define UStrigger 4
 #define USecho 13
-// PUMP pins
-#define PUMP1 9
-#define PUMP2 10
-#define PUMP3 11
-#define PUMP4 12
 // DHT11 sensor pins
 #define DHTPIN 8
 #define DHTTYPE DHT11
 // DHT & BMP instances
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
-
+// PUMP pins
+Pump PUMP1(9);
+Pump PUMP2(10);
+Pump PUMP3(11);
+Pump PUMP4(12);
 // Listen on default port 5555, the webserver on the Yun
 // will forward there all the HTTP requests for us.
 BridgeServer server;
@@ -52,20 +52,6 @@ void setup() {
   pinMode( USecho, INPUT );
   // Initialise the sensor
   bmp.begin();
-  /*if (!bmp.begin())
-  {
-    Console.print("Ooops, no BMP085 detected ... Check your wiring or I2C ADDR!");
-    while (1);
-  }*/
-  //Pump setup
-  pinMode(PUMP1,OUTPUT);
-  pinMode(PUMP2,OUTPUT);  
-  pinMode(PUMP3,OUTPUT);
-  pinMode(PUMP4,OUTPUT);
-  digitalWrite(PUMP1,HIGH);
-  digitalWrite(PUMP2,HIGH);
-  digitalWrite(PUMP3,HIGH);
-  digitalWrite(PUMP4,HIGH);
 }
 
 void loop() {
@@ -74,6 +60,13 @@ void loop() {
     Console.println("Client connected");
     process(client);  // Process request
     client.stop();    // Close connection and free resources.
+  }
+  if(PUMP1.IsOpen() || PUMP2.IsOpen() || PUMP3.IsOpen() || PUMP4.IsOpen()){
+    long water = getWaterLevel();
+    PUMP1.ForceClose(water);
+    PUMP2.ForceClose(water);
+    PUMP3.ForceClose(water);
+    PUMP4.ForceClose(water);
   }
   delay(50); // Poll every 50ms
 }
@@ -123,13 +116,14 @@ void process(BridgeClient client){
   }
   else if(command.indexOf("startPump") != -1){
     Console.println("Call startPump method");
-    int pNum = -1;
+    int pNum = -1,minLvl = -1;
     if(command.lastIndexOf('/') != -1){
-      pNum = command.substring(command.lastIndexOf('/') + 1).toInt();
+      pNum = command.substring(command.indexOf('/') + 1,command.lastIndexOf('/')).toInt();
+      minLvl = command.substring(command.lastIndexOf('/') + 1).toInt();
       Console.print("Pump number: ");
       Console.println(pNum);
     }
-    if(pNum != -1) startPump(pNum);  // http://ArduinoAddress/arduino/startPump/1 
+    if(pNum != -1) startPump(pNum,minLvl);  // http://ArduinoAddress/arduino/startPump/1/25 
   }
   else if(command.indexOf("stopPump") != -1){
     Console.println("Call stopPump method");
@@ -146,7 +140,6 @@ void process(BridgeClient client){
     root["temperature"] = getTemperature();
     root["humidity"] = getHumidity();
     root["light"] = getLight();
-    root["moisture"] = getMoisture(1);
     root["pressure"] = getPressure();
     root["water"] = getWaterLevel();
     
@@ -195,20 +188,20 @@ int getLight(){
     return CalculateLux(analogRead(A1));  
 }
 
-void startPump(int pumpNumber){
+void startPump(int pumpNumber,int minLvl){
   switch(pumpNumber)
   {
     case 1:
-      digitalWrite(PUMP1,LOW);
+      PUMP1.Open(minLvl);
       break;
     case 2:
-      digitalWrite(PUMP2,LOW);
+      PUMP2.Open(minLvl);
       break;
     case 3:
-      digitalWrite(PUMP3,LOW);
+      PUMP3.Open(minLvl);
       break;
     case 4:
-      digitalWrite(PUMP4,LOW);
+      PUMP4.Open(minLvl);
       break;
   }
 }
@@ -217,16 +210,16 @@ void stopPump(int pumpNumber){
   switch(pumpNumber)
   {
     case 1:
-      digitalWrite(PUMP1,HIGH);
+      PUMP1.Close();
       break;
     case 2:
-      digitalWrite(PUMP2,HIGH);
+      PUMP2.Close();
       break;
     case 3:
-      digitalWrite(PUMP3,HIGH);
+      PUMP3.Close();
       break;
     case 4:
-      digitalWrite(PUMP4,HIGH);
+      PUMP4.Close();
       break;
   }
 }
