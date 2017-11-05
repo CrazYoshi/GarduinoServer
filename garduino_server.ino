@@ -9,8 +9,7 @@
 #include <Wire.h>
 #include <DHT.h>
 #include <Pump.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BMP085_U.h>
+#include <DFRobot_BMP280.h>
 #include <ArduinoJson.h>
 
 // MULTIPLEXER pins
@@ -25,7 +24,7 @@
 #define DHTTYPE DHT11
 // DHT & BMP instances
 DHT dht(DHTPIN, DHTTYPE);
-Adafruit_BMP085_Unified bmp = Adafruit_BMP085_Unified(10085);
+DFRobot_BMP280 bmp280; 
 // PUMP pins
 Pump PUMP1(9);
 Pump PUMP2(10);
@@ -51,7 +50,7 @@ void setup() {
   pinMode( UStrigger, OUTPUT );
   pinMode( USecho, INPUT );
   // Initialise the sensor
-  bmp.begin();
+  bmp280.begin();
 }
 
 void loop() {
@@ -175,9 +174,7 @@ long getWaterLevel(){
 }
 
 float getPressure(){
-  sensors_event_t event;
-  bmp.getEvent(&event);
-  return event.pressure;
+  return bmp280.readPressureValue();
 }
 
 int getMoisture(int sensorNumber){
