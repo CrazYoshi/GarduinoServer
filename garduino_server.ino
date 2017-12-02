@@ -117,22 +117,33 @@ void process(BridgeClient client){
     Console.println("Call startPump method");
     int pNum = -1,minLvl = -1;
     if(command.lastIndexOf('/') != -1){
-      pNum = command.substring(command.indexOf('/') + 1,command.lastIndexOf('/')).toInt();
+      String pump = command.substring(command.indexOf('/') + 1,command.lastIndexOf('/'));
+      if(pump == "all") pNum = 0;
+      else pNum = pump.toInt();
       minLvl = command.substring(command.lastIndexOf('/') + 1).toInt();
       Console.print("Pump number: ");
       Console.println(pNum);
     }
-    if(pNum != -1) startPump(pNum,minLvl);  // http://ArduinoAddress/arduino/startPump/1/25 
+    if(pNum > -1) startPump(pNum,minLvl);  // http://ArduinoAddress/arduino/startPump/1/25 or http://ArduinoAddress/arduino/startPump/all/25
   }
   else if(command.indexOf("stopPump") != -1){
     Console.println("Call stopPump method");
     int pNum = -1;
     if(command.lastIndexOf('/') != -1){
-      pNum = command.substring(command.lastIndexOf('/')  + 1).toInt();
+      String pump = command.substring(command.lastIndexOf('/')  + 1);
+      if(pump == "all") pNum = 0;
+      else pNum = pump.toInt();
       Console.print("Pump number: ");
       Console.println(pNum);
     }
-    if(pNum != -1) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1
+    if(pNum > -1) stopPump(pNum);  // http://ArduinoAddress/arduino/stopPump/1 or http://ArduinoAddress/arduino/stopPump/all
+  }
+  else if(command == "getPumpStatus"){
+    Console.println("Call getPumpStatus method");
+    root["pump1"] = PUMP1.IsOpen();
+    root["pump2"] = PUMP2.IsOpen();
+    root["pump3"] = PUMP3.IsOpen();
+    root["pump4"] = PUMP4.IsOpen();
   }
   else if(command == "getAll"){  // http://ArduinoAddress/arduino/getAll
     Console.println("No command method: " + command);
@@ -200,6 +211,12 @@ void startPump(int pumpNumber,int minLvl){
     case 4:
       PUMP4.Open(minLvl);
       break;
+    case 0:
+      PUMP1.Open(minLvl);
+      PUMP2.Open(minLvl);
+      PUMP3.Open(minLvl);
+      PUMP4.Open(minLvl);
+      break;
   }
 }
 
@@ -216,6 +233,12 @@ void stopPump(int pumpNumber){
       PUMP3.Close();
       break;
     case 4:
+      PUMP4.Close();
+      break;
+    case 0:
+      PUMP1.Close();
+      PUMP2.Close();
+      PUMP3.Close();
       PUMP4.Close();
       break;
   }
